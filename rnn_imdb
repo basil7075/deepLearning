@@ -1,0 +1,62 @@
+import re
+import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import TextVectorization, Embedding, SimpleRNN, LSTM, GRU, Dense
+
+df = pd.read_csv("/content/IMDB Dataset.csv")
+
+def clean(text):
+    words = re.findall(r'[a-z]+', re.sub(r'<.*?>', ' ', text.lower()))
+    return ' '.join(w for w in words if w not in ENGLISH_STOP_WORDS)
+
+x = df['review'].apply(clean).values
+y = (df['sentiment'] == 'positive').astype(int).values
+
+xtr, xte, ytr, yte = train_test_split(x, y, test_size=0.2, random_state=42)
+
+vocab_size = 10000
+max_len = 200
+
+vectorizer = TextVectorization(max_tokens=vocab_size, output_sequence_length=max_len)
+vectorizer.adapt(xtr)
+
+xtr = vectorizer(xtr).numpy()
+xte = vectorizer(xte).numpy()
+
+def build_and_test(rnn_type):
+    model = Sequential([Embedding(vocab_size, 32, mask_zero=True)])
+
+    if rnn_type == 'RNN':
+        model.add(SimpleRNN(64))
+    elif rnn_type == 'LSTM':
+        model.add(LSTM(64))
+    else:
+        model.add(GRU(64))
+
+    model.add(Dense(1, activation='sigmoid'))
+
+    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+    history = model.fit(xtr, ytr, epochs=5, batch_size=64, validation_split=0.2)
+    _, acc = model.evaluate(xte, yte, verbose=0)
+    return acc, history
+
+results = {}
+histories = {}
+
+results["SimpleRNN"], histories["SimpleRNN"] = build_and_test("RNN")
+results["LSTM"], histories["LSTM"] = build_and_test("LSTM")
+results["GRU"], histories["GRU"] = build_and_test("GRU")
+
+for name, history in histories.items():
+    plt.plot(history.history['val_accuracy'], label=name)
+plt.title('Validation Accuracy: SimpleRNN vs LSTM vs GRU')
+plt.xlabel('Epoch')
+plt.ylabel('Validation Accuracy')
+plt.legend()
+plt.show()
+
+for name, acc in results.items():
+    print(f"{name}: {acc*100:.2f}%")

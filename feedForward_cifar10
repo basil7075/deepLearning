@@ -1,0 +1,45 @@
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.layers import Input, Dense, Flatten, Dropout, Identity
+from tensorflow.keras import initializers, regularizers
+import matplotlib.pyplot as plt
+
+xtr, ytr, xte, yte = load_local_cifar10()
+xtr, xte = xtr / 255.0, xte / 255.0
+ytr, yte = to_categorical(ytr), to_categorical(yte)
+
+def build_and_test(name, init=None, drop=0.0, reg=None):
+    model = Sequential([
+        Flatten(input_shape=(32, 32, 3)),
+        Dense(512, kernel_initializer=init, kernel_regularizer=reg, activation='relu'),
+        Dropout(drop) if drop > 0 else Identity(),
+        Dense(256, kernel_initializer=init, kernel_regularizer=reg, activation='relu'),
+        Dense(128, kernel_initializer=init, kernel_regularizer=reg, activation='relu'),
+        Dense(10, activation='softmax')
+    ])
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    history = model.fit(xtr, ytr, epochs=5, batch_size=64, validation_split=0.1)
+    loss, acc = model.evaluate(xte, yte, verbose=1)
+    return acc, history
+
+results = {}
+histories = {}
+
+results["Default"], histories["Default"] = build_and_test("Default")
+results["Xavier"], histories["Xavier"] = build_and_test("Xavier", init=initializers.GlorotNormal())
+results["Kaiming"], histories["Kaiming"] = build_and_test("Kaiming", init=initializers.HeNormal())
+
+results["Dropout"], histories["Dropout"] = build_and_test("Dropout", drop=0.3)
+results["L2"], histories["L2"] = build_and_test("L2", reg=regularizers.l2(0.001))
+
+for name, hist in histories.items():
+    plt.plot(hist.history['val_accuracy'], label=name)
+plt.title('Validation Accuracy: Initialization vs Regularization')
+plt.xlabel('Epoch')
+plt.ylabel('Validation Accuracy')
+plt.legend()
+plt.show()
+
+for name, acc in results.items():
+    print(f"{name}: {acc*100:.2f}%")

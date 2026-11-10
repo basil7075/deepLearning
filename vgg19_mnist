@@ -1,0 +1,35 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Flatten, Dense
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.applications import VGG19
+from tensorflow.keras.applications.vgg19 import preprocess_input
+from tensorflow.keras.optimizers import Adam
+
+(xtr, ytr), (xte, yte) = mnist.load_data()
+
+def prep(x):
+    x = x.reshape(-1, 28, 28, 1)
+    x = np.repeat(x, 3, axis=-1).astype('float32')
+    x = tf.image.resize(x, (32, 32)).numpy()
+    return preprocess_input(x)
+
+xtr, xte = prep(xtr), prep(xte)
+ytr, yte = to_categorical(ytr, 10), to_categorical(yte, 10)
+
+def build(freeze):
+    base = VGG19(weights='imagenet', include_top=False, input_shape=(32, 32, 3))
+    base.trainable = not freeze
+    model = Sequential([
+        base,
+        Flatten(),
+        Dense(128, activation='relu'),
+        Dense(10, activation='softmax')
+    ])
+    model.compile(optimizer=Adam(1e-4), loss='categorical_crossentropy', metrics=['accuracy'])
+    return model
+
+histories = {}

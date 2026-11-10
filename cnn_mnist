@@ -1,0 +1,40 @@
+import visualkeras
+import matplotlib.pyplot as plt
+from tensorflow.keras.datasets import mnist
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Flatten, Dense
+
+(xtr, ytr), (xte, yte) = mnist.load_data()
+
+xtr , xte = xtr / 255.0 , xte / 255.0
+xtr , xte = xtr.reshape(-1, 28, 28, 1) , xte.reshape(-1, 28, 28, 1)
+
+ytr , yte = to_categorical(ytr) , to_categorical(yte)
+
+model = Sequential([
+    Input(shape=(28, 28, 1)),
+    Conv2D(32, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Conv2D(64, (3, 3), activation='relu'),
+    MaxPooling2D((2, 2)),
+    Conv2D(128, (3, 3), activation='relu'),
+    Flatten(),
+    Dense(128, activation='relu'),
+    Dense(10, activation='softmax')
+])
+
+model.summary()
+
+for layer in model.layers:
+    if not hasattr(layer, 'output_shape'):
+        try:
+            layer.output_shape = layer.output.shape
+        except AttributeError:
+            pass
+
+img = visualkeras.layered_view(model, legend=True, max_z=50)
+
+plt.imshow(img)
+plt.axis('off')
+plt.show()
